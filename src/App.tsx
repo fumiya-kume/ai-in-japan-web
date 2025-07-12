@@ -40,6 +40,11 @@ function App() {
 
   const filteredCompanies = useMemo(() => {
     return companies.filter(company => {
+      // Hide レバレジーズ株式会社
+      if (company.company_name === "レバレジーズ株式会社") {
+        return false;
+      }
+      
       const matchesSearch = company.company_name.toLowerCase().includes(searchTerm.toLowerCase());
       
       const matchesTool = selectedTool === "all" || 
