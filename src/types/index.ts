@@ -18,3 +18,12 @@ export type ToolName = keyof Tools;
 
 export type SortField = "company_name" | ToolName;
 export type SortDirection = "asc" | "desc";
+
+export type FilterMode = "single" | "multiple";
+export type FilterOperator = "AND" | "OR";
+
+export interface MultiToolFilter {
+  tools: ToolName[];
+  operator: FilterOperator;
+  status: AdoptionStatus | "all";
+}
