@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Company, ToolName, AdoptionStatus, FilterOperator } from './types';
 import { CompanyTable } from './components/CompanyTable';
 import { SearchBar } from './components/SearchBar';
+import { AISearchBar } from './components/AISearchBar';
 import { FilterControls } from './components/FilterControls';
 import { GitHubIcon } from './components/icons/GitHubIcon';
 
@@ -15,6 +16,7 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAISearchEnabled, setIsAISearchEnabled] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -129,7 +131,27 @@ function App() {
           </div>
           
           <div className="grid gap-4 md:gap-6">
-            <SearchBar value={searchTerm} onChange={setSearchTerm} />
+            <AISearchBar 
+              onSearchResult={(filters) => {
+                if (filters.searchTerm !== undefined) {
+                  setSearchTerm(filters.searchTerm);
+                }
+                if (filters.tools && filters.tools.length > 0) {
+                  setSelectedTools(filters.tools);
+                  setSelectedTool("all");
+                }
+                if (filters.status) {
+                  setSelectedStatus(filters.status);
+                }
+                if (filters.operator) {
+                  setFilterOperator(filters.operator);
+                }
+              }}
+              onToggleAI={setIsAISearchEnabled}
+            />
+            {!isAISearchEnabled && (
+              <SearchBar value={searchTerm} onChange={setSearchTerm} />
+            )}
             <FilterControls
               selectedTool={selectedTool}
               selectedStatus={selectedStatus}

@@ -7,7 +7,9 @@
       "Bash(npm install)",
       "Bash(npm run dev:*)",
       "Bash(npm run build:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(kill:*)",
+      "WebFetch(domain:developer.chrome.com)"
     ],
     "deny": []
   }

@@ -97,44 +97,59 @@ export function CompanyTable({ companies }: CompanyTableProps) {
                 </div>
               </th>
             ))}
-            <th scope="col" className="relative px-6 py-3">
-              <span className="sr-only">詳細</span>
+            <th scope="col" className="w-12 px-2 py-3">
+              <span className="sr-only">展開</span>
             </th>
           </tr>
         </thead>
         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-          {sortedCompanies.map((company, index) => (
-            <>
-              <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {company.company_name}
-                </td>
-                {tools.map(tool => (
-                  <td key={tool} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
-                    <AdoptionBadge status={company.tools[tool]} />
+          {sortedCompanies.map((company, index) => {
+            const isExpanded = expandedRows.has(index);
+            return (
+              <>
+                <tr 
+                  key={index} 
+                  className="hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                  onClick={() => toggleRow(index)}
+                >
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {company.company_name}
                   </td>
-                ))}
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={() => toggleRow(index)}
-                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                  >
-                    {expandedRows.has(index) ? '閉じる' : '詳細'}
-                  </button>
-                </td>
-              </tr>
-              {expandedRows.has(index) && (
+                  {tools.map(tool => (
+                    <td key={tool} className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                      <AdoptionBadge status={company.tools[tool]} />
+                    </td>
+                  ))}
+                  <td className="w-12 px-2 py-4 text-center">
+                    <svg 
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 inline-block ${isExpanded ? 'transform rotate-90' : ''}`}
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </td>
+                </tr>
                 <tr key={`${index}-expanded`}>
-                  <td colSpan={7} className="px-6 py-4 bg-gray-50 dark:bg-gray-800">
-                    <div className="text-sm text-gray-900 dark:text-gray-100">
-                      <p className="font-medium mb-2">ソース:</p>
-                      <div dangerouslySetInnerHTML={{ __html: parseMarkdownLinks(company.source) }} />
+                  <td colSpan={7} className="p-0">
+                    <div 
+                      className={`overflow-hidden transition-all duration-200 ${
+                        isExpanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+                      }`}
+                    >
+                      <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800">
+                        <div className="text-sm text-gray-900 dark:text-gray-100">
+                          <p className="font-medium mb-2">ソース:</p>
+                          <div dangerouslySetInnerHTML={{ __html: parseMarkdownLinks(company.source) }} />
+                        </div>
+                      </div>
                     </div>
                   </td>
                 </tr>
-              )}
-            </>
-          ))}
+              </>
+            );
+          })}
         </tbody>
       </table>
     </div>
