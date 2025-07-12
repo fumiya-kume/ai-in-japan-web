@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { Company, ToolName, SortField, SortDirection } from '../types';
 import { AdoptionBadge } from './AdoptionBadge';
 import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
+import { CursorIcon } from './icons/CursorIcon';
+import { DevinIcon } from './icons/DevinIcon';
+import { GitHubCopilotIcon } from './icons/GitHubCopilotIcon';
+import { ChatGPTIcon } from './icons/ChatGPTIcon';
+import { ClaudeCodeIcon } from './icons/ClaudeCodeIcon';
 
 interface CompanyTableProps {
   companies: Company[];
@@ -47,6 +52,14 @@ export function CompanyTable({ companies }: CompanyTableProps) {
   });
 
   const tools: ToolName[] = ["Cursor", "Devin", "GitHub Copilot", "ChatGPT", "Claude Code"];
+  
+  const toolIcons: Record<ToolName, React.ComponentType<{ className?: string }>> = {
+    "Cursor": CursorIcon,
+    "Devin": DevinIcon,
+    "GitHub Copilot": GitHubCopilotIcon,
+    "ChatGPT": ChatGPTIcon,
+    "Claude Code": ClaudeCodeIcon
+  };
 
   return (
     <div className="overflow-x-auto shadow-lg rounded-lg">
@@ -73,7 +86,11 @@ export function CompanyTable({ companies }: CompanyTableProps) {
                 onClick={() => handleSort(tool)}
               >
                 <div className="flex items-center">
-                  {tool}
+                  {(() => {
+                    const Icon = toolIcons[tool];
+                    return <Icon className="w-5 h-5 mr-2 flex-shrink-0" />;
+                  })()}
+                  <span className="truncate">{tool}</span>
                   <span className="ml-2">
                     {sortField === tool && (sortDirection === 'asc' ? '↑' : '↓')}
                   </span>
