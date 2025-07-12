@@ -6,12 +6,26 @@ interface AISearchBarProps {
     tools?: ToolName[];
     status?: AdoptionStatus;
     operator?: 'AND' | 'OR';
-    searchTerm?: string;
   }) => void;
   onToggleAI: (enabled: boolean) => void;
 }
 
 type ModelAvailability = 'unavailable' | 'downloadable' | 'downloading' | 'available';
+
+interface QueryHistory {
+  id: string;
+  timestamp: Date;
+  query: string;
+  prompt: string;
+  response: string;
+  parsedFilters: {
+    tools?: ToolName[];
+    status?: AdoptionStatus;
+    operator?: 'AND' | 'OR';
+  };
+  duration: number;
+  error?: string;
+}
 
 declare global {
   interface LanguageModel {
@@ -40,6 +54,10 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
   const [modelStatus, setModelStatus] = useState<ModelAvailability>('unavailable');
   const [downloadProgress, setDownloadProgress] = useState<number>(0);
   const [showCopied, setShowCopied] = useState(false);
+  const [showModelDetails, setShowModelDetails] = useState(false);
+  const [queryHistory, setQueryHistory] = useState<QueryHistory[]>([]);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
+  const [chromeVersion, setChromeVersion] = useState<string>('');
 
   // Check if Gemini Nano is available
   useEffect(() => {
@@ -67,11 +85,41 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
     return () => clearInterval(interval);
   }, []);
 
+  // Get Chrome version
+  useEffect(() => {
+    const match = navigator.userAgent.match(/Chrome\/([\d.]+)/);
+    if (match) {
+      setChromeVersion(match[1]);
+    }
+  }, []);
+
+  // Load history from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('aiSearchHistory');
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        setQueryHistory(parsed.map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        })));
+      } catch (err) {
+        console.error('Failed to load history:', err);
+      }
+    }
+  }, []);
+
+  // Save history to localStorage
+  useEffect(() => {
+    if (queryHistory.length > 0) {
+      localStorage.setItem('aiSearchHistory', JSON.stringify(queryHistory.slice(0, 20)));
+    }
+  }, [queryHistory]);
+
   const parseAIResponse = (response: string): {
     tools?: ToolName[];
     status?: AdoptionStatus;
     operator?: 'AND' | 'OR';
-    searchTerm?: string;
   } => {
     const filters: ReturnType<typeof parseAIResponse> = {};
     
@@ -96,12 +144,6 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
       filters.operator = operatorMatch[1] as 'AND' | 'OR';
     }
 
-    // Parse company name search
-    const searchMatch = response.match(/企業名:\s*"([^"]+)"/);
-    if (searchMatch) {
-      filters.searchTerm = searchMatch[1];
-    }
-
     return filters;
   };
 
@@ -110,6 +152,7 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
 
     setIsLoading(true);
     setError(null);
+    const startTime = Date.now();
 
     try {
       const session = await window.LanguageModel.create({
@@ -133,10 +176,9 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
 - ツール: [ツール名のリスト]
 - 導入状況: 導入状況
 - 条件: AND または OR（複数ツールの場合）
-- 企業名: "検索する企業名"（企業名での検索の場合）
 
 例：
-クエリ: "ChatGPTとCopilotを全社導入している企業"
+クエリ: "ChatGPTとCopilotを全社導入している"
 回答:
 - ツール: ["ChatGPT", "GitHub Copilot"]
 - 導入状況: 全社導入
@@ -145,10 +187,35 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
       const response = await session.prompt(prompt);
       const filters = parseAIResponse(response);
       
+      // Add to history
+      const historyEntry: QueryHistory = {
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        query,
+        prompt,
+        response,
+        parsedFilters: filters,
+        duration: Date.now() - startTime
+      };
+      setQueryHistory(prev => [historyEntry, ...prev].slice(0, 20));
+      
       onSearchResult(filters);
     } catch (err) {
       console.error('AI search error:', err);
       setError('検索中にエラーが発生しました');
+      
+      // Add error to history
+      const historyEntry: QueryHistory = {
+        id: Date.now().toString(),
+        timestamp: new Date(),
+        query,
+        prompt,
+        response: '',
+        parsedFilters: {},
+        duration: Date.now() - startTime,
+        error: err instanceof Error ? err.message : '不明なエラー'
+      };
+      setQueryHistory(prev => [historyEntry, ...prev].slice(0, 20));
     } finally {
       setIsLoading(false);
     }
@@ -216,6 +283,14 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
                                 modelStatus === 'downloading' ? 'ダウンロード中' :
                                 modelStatus === 'downloadable' ? 'ダウンロード可能' : '利用不可'}
             </span>
+            {modelStatus === 'available' && (
+              <button
+                onClick={() => setShowModelDetails(!showModelDetails)}
+                className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                [{showModelDetails ? '▼' : '▶'} 詳細]
+              </button>
+            )}
           </div>
           <button
             onClick={() => window.location.reload()}
@@ -225,6 +300,16 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
             🔄 更新
           </button>
         </div>
+        
+        {/* Model Details */}
+        {showModelDetails && modelStatus === 'available' && (
+          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-400 space-y-1">
+            <div>モデル: Gemini Nano</div>
+            <div>コンテキスト: 6,000 トークン</div>
+            <div>Chrome: {chromeVersion || '不明'}</div>
+            <div>最終確認: {new Date().toLocaleString('ja-JP')}</div>
+          </div>
+        )}
         
         {modelStatus === 'downloading' && (
           <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mb-2">
@@ -332,6 +417,120 @@ export function AISearchBar({ onSearchResult, onToggleAI }: AISearchBarProps) {
       {isAIEnabled && isAvailable && (
         <div className="text-xs text-gray-500 dark:text-gray-400">
           例: 「Copilotを導入している大手企業」「ChatGPTとClaudeの両方を使っている会社」
+        </div>
+      )}
+
+      {/* Search History */}
+      {isAIEnabled && queryHistory.length > 0 && (
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-300">
+              検索履歴 ({queryHistory.length})
+            </h3>
+            <button
+              onClick={() => {
+                setQueryHistory([]);
+                localStorage.removeItem('aiSearchHistory');
+              }}
+              className="text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+            >
+              クリア
+            </button>
+          </div>
+          
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {queryHistory.map((history) => {
+              const isExpanded = expandedHistoryIds.has(history.id);
+              return (
+                <div
+                  key={history.id}
+                  className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600"
+                >
+                  <div
+                    className="flex items-start justify-between cursor-pointer"
+                    onClick={() => {
+                      const newExpanded = new Set(expandedHistoryIds);
+                      if (isExpanded) {
+                        newExpanded.delete(history.id);
+                      } else {
+                        newExpanded.add(history.id);
+                      }
+                      setExpandedHistoryIds(newExpanded);
+                    }}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {isExpanded ? '▼' : '▶'}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {history.timestamp.toLocaleString('ja-JP')}
+                        </span>
+                        {history.error && (
+                          <span className="text-xs text-red-600 dark:text-red-400">
+                            エラー
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-900 dark:text-gray-100 mt-1">
+                        「{history.query}」
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600 space-y-2 text-xs">
+                      <div>
+                        <div className="text-gray-600 dark:text-gray-400 font-medium">プロンプト:</div>
+                        <div className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-2 rounded mt-1 whitespace-pre-wrap break-words">
+                          {history.prompt.substring(0, 200)}...
+                        </div>
+                      </div>
+                      
+                      {history.response && (
+                        <div>
+                          <div className="text-gray-600 dark:text-gray-400 font-medium">レスポンス:</div>
+                          <div className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-2 rounded mt-1">
+                            {history.response}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {history.error && (
+                        <div>
+                          <div className="text-red-600 dark:text-red-400 font-medium">エラー:</div>
+                          <div className="text-red-700 dark:text-red-300">
+                            {history.error}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {Object.keys(history.parsedFilters).length > 0 && (
+                        <div>
+                          <div className="text-gray-600 dark:text-gray-400 font-medium">解析結果:</div>
+                          <div className="text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 p-2 rounded mt-1">
+                            {history.parsedFilters.tools && (
+                              <div>ツール: {history.parsedFilters.tools.join(', ')}</div>
+                            )}
+                            {history.parsedFilters.status && (
+                              <div>導入状況: {history.parsedFilters.status}</div>
+                            )}
+                            {history.parsedFilters.operator && (
+                              <div>条件: {history.parsedFilters.operator}</div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="text-gray-500 dark:text-gray-400">
+                        処理時間: {history.duration}ms
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

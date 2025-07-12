@@ -133,9 +133,6 @@ function App() {
           <div className="grid gap-4 md:gap-6">
             <AISearchBar 
               onSearchResult={(filters) => {
-                if (filters.searchTerm !== undefined) {
-                  setSearchTerm(filters.searchTerm);
-                }
                 if (filters.tools && filters.tools.length > 0) {
                   setSelectedTools(filters.tools);
                   setSelectedTool("all");
