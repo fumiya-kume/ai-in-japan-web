@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Company, ToolName, AdoptionStatus, FilterMode, FilterOperator } from './types';
+import { Company, ToolName, AdoptionStatus, FilterOperator } from './types';
 import { CompanyTable } from './components/CompanyTable';
 import { SearchBar } from './components/SearchBar';
 import { FilterControls } from './components/FilterControls';
@@ -10,7 +10,6 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTool, setSelectedTool] = useState<ToolName | "all">("all");
   const [selectedStatus, setSelectedStatus] = useState<AdoptionStatus | "all">("all");
-  const [filterMode, setFilterMode] = useState<FilterMode>('single');
   const [selectedTools, setSelectedTools] = useState<ToolName[]>([]);
   const [filterOperator, setFilterOperator] = useState<FilterOperator>('AND');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -51,35 +50,31 @@ function App() {
       
       const matchesSearch = company.company_name.toLowerCase().includes(searchTerm.toLowerCase());
       
-      let matchesFilter = true;
+      // Single tool filter
+      const matchesTool = selectedTool === "all" || 
+        (selectedStatus === "all" ? true : company.tools[selectedTool] === selectedStatus);
       
-      if (filterMode === 'single') {
-        const matchesTool = selectedTool === "all" || 
-          (selectedStatus === "all" ? true : company.tools[selectedTool] === selectedStatus);
-        
-        const matchesStatus = selectedStatus === "all" || 
-          (selectedTool === "all" 
-            ? Object.values(company.tools).some(status => status === selectedStatus)
-            : company.tools[selectedTool] === selectedStatus);
-        
-        matchesFilter = matchesTool && matchesStatus;
-      } else {
-        // Multiple mode
-        if (selectedTools.length === 0) {
-          matchesFilter = true;
-        } else if (selectedStatus === "all") {
-          matchesFilter = true;
-        } else {
-          const toolStatuses = selectedTools.map(tool => company.tools[tool] === selectedStatus);
-          matchesFilter = filterOperator === 'AND' 
-            ? toolStatuses.every(status => status)
-            : toolStatuses.some(status => status);
-        }
+      const matchesStatus = selectedStatus === "all" || 
+        (selectedTool === "all" 
+          ? Object.values(company.tools).some(status => status === selectedStatus)
+          : company.tools[selectedTool] === selectedStatus);
+      
+      const singleFilter = matchesTool && matchesStatus;
+      
+      // Multiple tools filter
+      let multipleFilter = true;
+      if (selectedTools.length > 0 && selectedStatus !== "all") {
+        const toolStatuses = selectedTools.map(tool => company.tools[tool] === selectedStatus);
+        multipleFilter = filterOperator === 'AND' 
+          ? toolStatuses.every(status => status)
+          : toolStatuses.some(status => status);
       }
+      
+      const matchesFilter = singleFilter && multipleFilter;
       
       return matchesSearch && matchesFilter;
     });
-  }, [companies, searchTerm, selectedTool, selectedStatus, filterMode, selectedTools, filterOperator]);
+  }, [companies, searchTerm, selectedTool, selectedStatus, selectedTools, filterOperator]);
 
   if (loading) {
     return (
@@ -140,8 +135,6 @@ function App() {
               selectedStatus={selectedStatus}
               onToolChange={setSelectedTool}
               onStatusChange={setSelectedStatus}
-              filterMode={filterMode}
-              onFilterModeChange={setFilterMode}
               selectedTools={selectedTools}
               onSelectedToolsChange={setSelectedTools}
               filterOperator={filterOperator}
@@ -153,7 +146,7 @@ function App() {
             <div className="text-sm text-gray-600 dark:text-gray-400">
               {filteredCompanies.length} / {companies.length} 企業を表示中
             </div>
-            {filterMode === 'multiple' && selectedTools.length > 0 && selectedStatus !== 'all' && (
+            {selectedTools.length > 0 && selectedStatus !== 'all' && (
               <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                 フィルタ条件: {selectedTools.join(` ${filterOperator} `)} を「{selectedStatus}」している企業
               </div>
