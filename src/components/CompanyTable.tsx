@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Company, ToolName, SortField, SortDirection } from '../types';
 import { AdoptionBadge } from './AdoptionBadge';
+import { parseMarkdownLinks } from '../utils/parseMarkdownLinks';
 
 interface CompanyTableProps {
   companies: Company[];
@@ -110,7 +111,7 @@ export function CompanyTable({ companies }: CompanyTableProps) {
                   <td colSpan={7} className="px-6 py-4 bg-gray-50 dark:bg-gray-800">
                     <div className="text-sm text-gray-900 dark:text-gray-100">
                       <p className="font-medium mb-2">ソース:</p>
-                      <div dangerouslySetInnerHTML={{ __html: company.source }} />
+                      <div dangerouslySetInnerHTML={{ __html: parseMarkdownLinks(company.source) }} />
                     </div>
                   </td>
                 </tr>
